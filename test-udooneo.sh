@@ -139,11 +139,15 @@ else
 	log "Recognition GPIOs already exported"
 fi
 
-log "export pinheader GPIOs..."
-for i in ${!VALUEADDR[*]}; do
-	echo ${VALUEADDR[$i]} > /sys/class/gpio/export
-	echo out > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
-done
+if [ ! -f /sys/class/gpio/gpio170/direction ] || [ ! -f /sys/class/gpio/gpio179/direction ]; then
+	log "export Pinheader GPIOs..."
+	for i in ${!VALUEADDR[*]}; do
+		echo ${VALUEADDR[$i]} > /sys/class/gpio/export
+		echo out > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
+	done
+else
+	log "Recognition GPIOs already exported"
+fi
 }
 
 function board_version_recognition()
@@ -204,17 +208,19 @@ function test_gpio()
 {
 for((i=0; i<54; i+=2))
 {
-	echo in > /sys/class/gpio/gpio${VALUEADDR[$i+1]}/direction
+	echo in > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/direction
 	echo 1 > /sys/class/gpio/gpio${VALUEADDR[$i]}/value
-	VALUE=$(cat ${VALUEADDR[$i+1]})
-	if [ $VALUE  -eq  0 ]; then
+	sleep 0.1
+	VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value)
+	if [ $VALUE  -eq  1 ]; then
 		HIGH=0
 	else
 		HIGH=-1
 	fi
 	sleep 0.1
 	echo 0 > /sys/class/gpio/gpio${VALUEADDR[$i]}/value
-	VALUE=$(cat ${VALUEADDR[$i+1]})
+	sleep 0.1
+	VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value)
 	if [ $VALUE  -eq  0 ]; then
 		LOW=0
 	else
@@ -222,15 +228,16 @@ for((i=0; i<54; i+=2))
 	fi
 
 	if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
-		log "pin $i $i+1 OK"
+		log "pin $i $(($i+1)) OK"
 	else
-		log "pin $i $i+1 ERROR"
+		log "pin $i $(($i+1)) ERROR"
 	fi
 }
 }
 
 gpio_init
 board_version_recognition
+test_gpio
 
 #tests
 
