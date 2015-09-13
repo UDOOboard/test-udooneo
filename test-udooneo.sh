@@ -18,6 +18,69 @@ BASICKS=3
 DEV_ETH=eth0
 DEV_WIFI=wlan0
 
+# put all gpio in an array with indexes referring the arduino pinout
+VALUEADDR[0]='170'
+VALUEADDR[1]='179'
+VALUEADDR[2]='104'
+VALUEADDR[3]='143'
+VALUEADDR[4]='142'
+VALUEADDR[5]='141'
+VALUEADDR[6]='140'
+VALUEADDR[7]='149'
+
+VALUEADDR[8]='105'
+VALUEADDR[9]='148'
+VALUEADDR[10]='146'
+VALUEADDR[11]='147'
+VALUEADDR[12]='100'
+VALUEADDR[13]='102'
+VALUEADDR[14]='3'
+VALUEADDR[15]='2'
+
+VALUEADDR[16]='106'
+VALUEADDR[17]='107'
+VALUEADDR[18]='180'
+VALUEADDR[19]='181'
+VALUEADDR[20]='172'
+VALUEADDR[21]='173'
+VALUEADDR[22]='182'
+VALUEADDR[23]='24'
+
+VALUEADDR[24]='25'
+VALUEADDR[25]='22'
+VALUEADDR[26]='14'
+VALUEADDR[27]='15'
+VALUEADDR[28]='16'
+VALUEADDR[29]='17'
+VALUEADDR[30]='18'
+VALUEADDR[31]='19'
+VALUEADDR[32]='20'
+VALUEADDR[33]='21'
+
+VALUEADDR[34]='120'
+VALUEADDR[35]='121'
+VALUEADDR[36]='150'
+VALUEADDR[37]='145'
+VALUEADDR[38]='125'
+VALUEADDR[39]='126'
+
+VALUEADDR[40]='174'
+VALUEADDR[41]='175'
+VALUEADDR[42]='176'
+VALUEADDR[43]='177'
+VALUEADDR[44]='202'
+VALUEADDR[45]='203'
+
+VALUEADDR[46]='4'
+VALUEADDR[47]='5'
+VALUEADDR[48]='6'
+VALUEADDR[49]='7'
+VALUEADDR[50]='116'
+VALUEADDR[51]='127'
+VALUEADDR[52]='124'
+VALUEADDR[53]='119'
+
+
 
 # check the if root?
 userid=`id -u`
@@ -67,15 +130,20 @@ log(){
 
 function gpio_init(){
 if [ ! -f /sys/class/gpio/gpio109/direction ] || [ ! -f /sys/class/gpio/gpio96/direction ]; then
-	echo "export GPIOs..."
-  echo 109 > /sys/class/gpio/export # R184
+	log "export Recognition GPIOs..."
+	echo 109 > /sys/class/gpio/export # R184
 	echo 96 > /sys/class/gpio/export  # R185
 	echo in > /sys/class/gpio/gpio109/direction # R184
 	echo in > /sys/class/gpio/gpio96/direction  # R185
 else 
-	echo "GPIOs already exported"
+	log "Recognition GPIOs already exported"
 fi
 
+log "export pinheader GPIOs..."
+for i in ${!VALUEADDR[*]}; do
+	echo ${VALUEADDR[$i]} > /sys/class/gpio/export
+	echo out > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
+done
 }
 
 function board_version_recognition()
@@ -130,6 +198,35 @@ function test_usb()
   lsusb || log "lsusb failed, error $?" $?
   
   log "USB OK"
+}
+
+function test_gpio()
+{
+for((i=0; i<54; i+=2))
+{
+	echo in > /sys/class/gpio/gpio${VALUEADDR[$i+1]}/direction
+	echo 1 > /sys/class/gpio/gpio${VALUEADDR[$i]}/value
+	VALUE=$(cat ${VALUEADDR[$i+1]})
+	if [ $VALUE  -eq  0 ]; then
+		HIGH=0
+	else
+		HIGH=-1
+	fi
+	sleep 0.1
+	echo 0 > /sys/class/gpio/gpio${VALUEADDR[$i]}/value
+	VALUE=$(cat ${VALUEADDR[$i+1]})
+	if [ $VALUE  -eq  0 ]; then
+		LOW=0
+	else
+		LOW=-1
+	fi
+
+	if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
+		log "pin $i $i+1 OK"
+	else
+		log "pin $i $i+1 ERROR"
+	fi
+}
 }
 
 gpio_init
