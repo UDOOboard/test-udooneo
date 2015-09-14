@@ -143,6 +143,7 @@ function gpio_init_pinheader(){
   then
     log "- export Pinheader GPIOs..."
     for i in ${!VALUEADDR[*]}; do
+      echo "exporting pin ${VALUEADDR[$i]}..."
       echo ${VALUEADDR[$i]} > /sys/class/gpio/export
       echo out > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
     done
@@ -182,7 +183,7 @@ function test_ethernet()
   log "- TEST Ethernet"
  
   ifconfig $DEV_ETH up || log "Ethernet not showing up, error $?" $?
- # dhclient $DEV_ETH || log "Ethernet not functioning error $?" $? 
+#  dhclient $DEV_ETH || log "Ethernet not functioning error $?" $? 
   
   log "- TEST Ethernet OK"
 }
@@ -219,41 +220,6 @@ function test_usb_a()
   log "- TEST Usb A OK"
 }
 
-function test_gpio()
-{
-  gpio_init_pinheader
-
-	for((i=0; i<50; i+=2))
-	{
-		echo in > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
-		echo 1 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
-		sleep 0.1
-		VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$i]}/value)
-		echo $VALUE
-		if [ $VALUE  -eq  1 ]; then
-			HIGH=0
-		else
-			HIGH=-1
-		fi
-		sleep 0.1
-		echo 0 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
-		sleep 0.1
-		VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$i]}/value)
-		echo $VALUE
-		if [ $VALUE  -eq  0 ]; then
-			LOW=0
-		else
-			LOW=-1
-		fi
-
-		if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
-			log "pin $i $(($i+1)) OK"
-		else
-			log "pin $i $(($i+1)) ERROR" #1
-		fi
-	}
-}
-
 function test_motion_sensor()
 {
 	# FXOS8700CQ
@@ -273,6 +239,108 @@ function test_audiohdmi()
  
   log "- Audio HDMI OK"
 }
+
+function get_gpio_value(){
+  
+  local GPIO_NR
+  local BANK_NR
+  local GPIO
+  local VALUE
+
+  (( $1 > 0 )) && (( $1 < 192 )) && GPIO_NR=$1
+
+  [ -v GPIO_NR ] || log "- get_gpio_value: gpio number not valid" 1
+
+  GPIO_BANK=$(( $GPIO_NR / 32 ))
+
+  #imx6sx gpio regs
+  declare -a GPIO_ADDRESS
+
+  GPIO_ADDRESS[1]=0x0209C008
+  GPIO_ADDRESS[2]=0x020A0008
+  GPIO_ADDRESS[3]=0x020A4008
+  GPIO_ADDRESS[4]=0x020A8008
+  GPIO_ADDRESS[5]=0x020AC008
+  GPIO_ADDRESS[6]=0x020B0008
+  GPIO_ADDRESS[7]=0x020B4008
+
+  #reading registers
+  GPIO=$(devmem2 $GPIO_ADDRESS[$(($GPIO_BANK+1))] | tail -n1 | sed -e 's/.*\(0x.*$\)/\1/' )
+  SHIFT=$(( GPIO_NR % 32 ))
+
+  VALUE=$(( ( $GPIO << $SHIFT ) & 0x00000001 ))
+  
+  echo $VALUE 
+}
+
+function test_gpio()
+{
+  gpio_init_pinheader
+
+	for((i=0; i<50; i+=2))
+	{
+    log "- Testing pin ${VALUEADDR[$i]} and ${VALUEADDR[$(($i+1))]}.."
+		echo in > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
+    log "high.." 
+    echo 1 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
+		sleep 0.1
+    
+    #reading input register
+
+	  VALUE=$( get_gpio_value ${VALUEADDR[$i]} )
+		echo $VALUE
+		
+    [[ -n $VALUE ]] || log "- GPIO ERROR: devmem failed.. " 1 
+
+    if [ $VALUE  -eq  1 ]; then
+			HIGH=0
+		else
+			HIGH=-1
+		fi
+		
+    sleep 0.1
+    
+    log "..and low" 
+    echo 0 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
+		sleep 0.1
+
+    #reading again..
+
+	  VALUE=$( get_gpio_value ${VALUEADDR[$i]} )
+		echo $VALUE
+
+		if [ $VALUE  -eq  0 ]; then
+			LOW=0
+		else
+			LOW=-1
+		fi
+
+		if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
+			log "- pin $i $(($i+1)) OK"
+		else
+			log "- pin $i $(($i+1)) ERROR" 1
+		fi
+	}
+}
+
+test_i2c2() {
+
+  log "- TEST i2c2 "
+
+  local REG
+
+  ADDR=0x77
+  READ=0xD0
+
+  RESP=$(i2cget -y 1 $ADDR $READ b)
+  RESP_ERR=$?
+
+  (( $RESP_ERR ))  && 
+    log "- i2c2 ERROR: $RESP_ERR" $RESP_ERR
+
+  log "- TEST i2c2 OK"
+}
+
 
 #########START##########
 
@@ -320,6 +388,7 @@ if (( TEST_FULL ))
 then
  TESTS+=(test_usb_a)
  TESTS+=(test_gpio)
+ TESTS+=(test_i2c2)
 fi
 
 log "------------------------------ TESTS ------------------------------"
