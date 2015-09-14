@@ -10,10 +10,10 @@
 MOUNTED=0
 NOTMOUNTED=1
 
-FULL=0
-EXTENDED=1
-BASIC=2
-BASICKS=3
+FULL=1
+EXTENDED=2
+BASIC=3
+BASICKS=4
 
 DEV_ETH=eth0
 DEV_WIFI=wlan0
@@ -77,18 +77,18 @@ VALUEADDR[49]='6'
 #VALUEADDR[50]='5'  # uart
 #VALUEADDR[51]='4'
 
-
-
 # check the if root?
 userid=`id -u`
 if [ $userid -ne "0" ]; then
-	echo "You're not root?"
+	echo "You're not root? Bravoh!"
 	exit
 fi
 
 usage() {
- echo "Usage: $0 
- " 
+ cat << EOF 
+UDOO NEO Test Program
+Usage: $0 [ --full ]
+EOF
 }
   
 error() {
@@ -123,38 +123,39 @@ log(){
  exit $2
 }
 
-
-
-function gpio_init(){
-if 	[ ! -f /sys/class/gpio/gpio109/direction ] || 
-	[ ! -f /sys/class/gpio/gpio96/direction ] 
-then
-	log "export Recognition GPIOs..."
-	echo 109 > /sys/class/gpio/export # R184
-	echo 96 > /sys/class/gpio/export  # R185
-	echo in > /sys/class/gpio/gpio109/direction # R184
-	echo in > /sys/class/gpio/gpio96/direction  # R185
-else 
-	log "Recognition GPIOs already exported"
-fi
-
-if 	[ ! -f /sys/class/gpio/gpio178/direction ] || 
-	[ ! -f /sys/class/gpio/gpio179/direction ] || 
-	[ ! -f /sys/class/gpio/gpio180/direction ]
-then
-	log "export Pinheader GPIOs..."
-	for i in ${!VALUEADDR[*]}; do
-		echo ${VALUEADDR[$i]} > /sys/class/gpio/export
-		echo out > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
-	done
-else
-	log "Recognition GPIOs already exported"
-fi
+function gpio_init_recognition(){
+  if 	[ ! -f /sys/class/gpio/gpio109/direction ] || 
+      [ ! -f /sys/class/gpio/gpio96/direction ] 
+  then
+    log "- export Recognition GPIOs..."
+    echo 109 > /sys/class/gpio/export # R184
+    echo 96 > /sys/class/gpio/export  # R185
+    echo in > /sys/class/gpio/gpio109/direction # R184
+    echo in > /sys/class/gpio/gpio96/direction  # R185
+  else 
+    log "- Recognition GPIOs already exported"
+  fi
+}
+function gpio_init_pinheader(){
+  if 	[ ! -f /sys/class/gpio/gpio178/direction ] || 
+    [ ! -f /sys/class/gpio/gpio179/direction ] || 
+    [ ! -f /sys/class/gpio/gpio180/direction ]
+  then
+    log "- export Pinheader GPIOs..."
+    for i in ${!VALUEADDR[*]}; do
+      echo ${VALUEADDR[$i]} > /sys/class/gpio/export
+      echo out > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
+    done
+  else
+    log "- Pinheader GPIOs already exported"
+  fi
 }
 
 function board_version_recognition()
 {
-	
+
+  gpio_init_recognition
+
 	R184=`cat /sys/class/gpio/gpio109/value` # R184
 	R185=`cat /sys/class/gpio/gpio96/value`  # R185
 	
@@ -178,36 +179,50 @@ function board_version_recognition()
 
 function test_ethernet()
 {
-  log "TEST Ethernet"
+  log "- TEST Ethernet"
+ 
+  ifconfig $DEV_ETH up || log "Ethernet not showing up, error $?" $?
+ # dhclient $DEV_ETH || log "Ethernet not functioning error $?" $? 
   
-  dhclient $DEV_ETH || log "Ethernet not functioning error $?" $? 
-  
-  log "Ethernet DHCP ok"
+  log "- TEST Ethernet OK"
 }
 
 function test_wifi()
 {
-  log "TEST Wireless"
+  log "- TEST Wireless"
   
   ifconfig $DEV_WIFI up || log "Wifi not showing up, error $?" $?
   iw $DEV_WIFI scan > /dev/null    || log "Wifi not found anything, error $?" $?
   #iw $DEV_WIFI connect  || log "Wifi not connecting, error $?" $?
   #dhclient $DEV_WIFI    || log "Wifi not giving ip address, dhcp fail, error $?" $? 
   
-  log "WIFI ok"
+  log "- TEST WIFI OK"
 }
 
-function test_usb()
+function test_u_usb()
 {
-  log "TEST Usb"
+  log "- TEST uUsb.."
   
-  lsusb || log "lsusb failed, error $?" $?
+  lsusb -D /dev/bus/usb/002/001 >/dev/null || log "uUsb: Hub not found" $? 
+  lsusb -D /dev/bus/usb/002/002 >/dev/null || log "uUsb: Device not found" $?
   
-  log "USB OK"
+  log "- TEST uUSB OK"
+}
+
+function test_usb_a()
+{
+  log "- TEST Usb A.."
+  
+  lsusb -D /dev/bus/usb/001/001 >/dev/null || log "Usb_A: Hub not found" $? 
+  lsusb -D /dev/bus/usb/001/002 >/dev/null || log "Usb_A: Device not found" $?
+  
+  log "- TEST Usb A OK"
 }
 
 function test_gpio()
 {
+  gpio_init_pinheader
+
 	for((i=0; i<50; i+=2))
 	{
 		echo in > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
@@ -246,45 +261,96 @@ function test_motion_sensor()
 	# FXAS21002CQR1
 	i2cset -f -y 3 0x20 0x13 0x16 || log "FXAS21002CQR1 Gyro, error $?" $?
 	
-	log "FXOS8700CQ/FXAS21002CQR1 (Acc/Mag - Gyro) OK"
+	log "- FXOS8700CQ/FXAS21002CQR1 (Acc/Mag - Gyro) OK"
 }
 
 function test_audiohdmi()
 {
+
+  log "- TEST AUDIO HDMI"
+
 	speaker-test -c2 -twav -l1 || log "Audio HDMI error $?" $?
+ 
+  log "- Audio HDMI OK"
 }
 
-gpio_init
-board_version_recognition
+#########START##########
+
+for i in $@
+do 
+  case "$i" in
+    --full)  TEST_FULL=1 ;;
+    *)       usagee ;; 
+  esac 
+  shift
+done
+
+clear
+
+log "UDOO NEO Unit Test"
+log " "
+
+[ -v BOARD_MODEL ] || board_version_recognition
+
+[ -v BOARD_MODEL ] || log "BOARD NOT RECOGNIZED" 1
 
 #tests
-TEST_ETH=0
-TEST_WIFI=0
-TEST_MOT_SENSOR=0
+
+declare -a TESTS
+
 if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $BASIC ]]
 then 
-	(test_ethernet) ; TEST_ETH=$?
+	TESTS+=(test_ethernet)
 fi
 
 if [[ $BOARD_MODEL != $BASIC ]] 
 then 
-	(test_wifi) ; TEST_WIFI=$?
+	TESTS+=(test_wifi)
 fi
 
 if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $EXTENDED ]]
 then
-	(test_motion_sensor); TEST_MOT_SENSOR=$?
+	TESTS+=(test_motion_sensor)
 fi
 
-(test_usb); TEST_USB=$?
+TESTS+=(test_u_usb)
+TESTS+=(test_audiohdmi)
 
-(test_gpio); TEST_GPIO=$?
+if (( TEST_FULL ))
+then
+ TESTS+=(test_usb_a)
+ TESTS+=(test_gpio)
+fi
 
-(test_audiohdmi); TEST_AUDIOHDMI=$?
+log "------------------------------ TESTS ------------------------------"
+log "- "
+log "- Tests: "
+log "- "
+for test in ${TESTS[*]}
+do
+  log "- $test "
+done
+log "-"
+log "-------------------------------------------------------------------"
 
-if (( $TEST_ETH + $TEST_WIFI + $TEST_MOT_SENSOR + $TEST_USB + $TEST_AUDIOHDMI ))
+log " "
+
+for test in ${TESTS[*]}
+do
+  ($test)
+  TEST_RES+=$?
+done
+
+log " "
+
+if (( $TEST_RES ))
 then 
-	log "UDOO NEO TEST FAILED" 1
+	log "- UDOO NEO TEST FAILED: ERRCODE $TEST_RES" 1
 else 
-	log "UDOO NEO TEST OK" 0
+	log "- UDOO NEO TEST OK" 0
 fi
+
+log " "
+
+sleep 10
+
