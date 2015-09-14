@@ -19,66 +19,63 @@ DEV_ETH=eth0
 DEV_WIFI=wlan0
 
 # put all gpio in an array with indexes referring the arduino pinout
-VALUEADDR[0]='170'
-VALUEADDR[1]='179'
-VALUEADDR[2]='104'
-VALUEADDR[3]='143'
-VALUEADDR[4]='142'
-VALUEADDR[5]='141'
-VALUEADDR[6]='140'
-VALUEADDR[7]='149'
+VALUEADDR[0]='178'   # j4
+VALUEADDR[1]='106'
+VALUEADDR[2]='179'
+VALUEADDR[3]='107'
+VALUEADDR[4]='104'
+VALUEADDR[5]='180'
+VALUEADDR[6]='143'
+VALUEADDR[7]='181'
+VALUEADDR[8]='142'
+VALUEADDR[9]='172'
+VALUEADDR[10]='141'
+VALUEADDR[11]='173'
+VALUEADDR[12]='140'
+VALUEADDR[13]='182'
+VALUEADDR[14]='149'
+VALUEADDR[15]='124'
 
-VALUEADDR[8]='105'
-VALUEADDR[9]='148'
-VALUEADDR[10]='146'
-VALUEADDR[11]='147'
-VALUEADDR[12]='100'
-VALUEADDR[13]='102'
-VALUEADDR[14]='3'
-VALUEADDR[15]='2'
-
-VALUEADDR[16]='106'
-VALUEADDR[17]='107'
-VALUEADDR[18]='180'
-VALUEADDR[19]='181'
-VALUEADDR[20]='172'
-VALUEADDR[21]='173'
-VALUEADDR[22]='182'
-VALUEADDR[23]='24'
-
-VALUEADDR[24]='25'
-VALUEADDR[25]='22'
-VALUEADDR[26]='14'
-VALUEADDR[27]='15'
-VALUEADDR[28]='16'
-VALUEADDR[29]='17'
-VALUEADDR[30]='18'
-VALUEADDR[31]='19'
-VALUEADDR[32]='20'
+VALUEADDR[16]='105'  # j6
+VALUEADDR[17]='25'
+VALUEADDR[18]='148'
+VALUEADDR[19]='23'
+VALUEADDR[20]='146'
+VALUEADDR[21]='14'
+VALUEADDR[22]='147'
+VALUEADDR[23]='15'
+VALUEADDR[24]='100'
+VALUEADDR[25]='16'
+VALUEADDR[26]='102'
+VALUEADDR[27]='17'
+VALUEADDR[28]='18'
+VALUEADDR[29]='19'
+VALUEADDR[30]='3'
+VALUEADDR[31]='20'
+VALUEADDR[32]='2'
 VALUEADDR[33]='21'
 
-VALUEADDR[34]='120'
-VALUEADDR[35]='121'
-VALUEADDR[36]='150'
+VALUEADDR[34]='125'
+VALUEADDR[35]='126'
+VALUEADDR[36]='177'
 VALUEADDR[37]='145'
-VALUEADDR[38]='125'
-VALUEADDR[39]='126'
+VALUEADDR[38]='176'
+VALUEADDR[39]='150'
+VALUEADDR[40]='175'
+VALUEADDR[41]='121'
+VALUEADDR[42]='174'
+VALUEADDR[43]='120'
+#VALUEADDR[44]='202'
+#VALUEADDR[45]='203'
 
-VALUEADDR[40]='174'
-VALUEADDR[41]='175'
-VALUEADDR[42]='176'
-VALUEADDR[43]='177'
-VALUEADDR[44]='202'
-VALUEADDR[45]='203'
-
-VALUEADDR[46]='4'
-VALUEADDR[47]='5'
-VALUEADDR[48]='6'
-VALUEADDR[49]='7'
-VALUEADDR[50]='116'
-VALUEADDR[51]='127'
-VALUEADDR[52]='124'
-VALUEADDR[53]='119'
+VALUEADDR[44]='119'  # j7
+VALUEADDR[45]='124'
+VALUEADDR[46]='127'
+VALUEADDR[47]='116'
+VALUEADDR[48]='7'
+VALUEADDR[49]='6'
+#VALUEADDR[50]='5'  # uart
+#VALUEADDR[51]='4'
 
 
 
@@ -129,7 +126,9 @@ log(){
 
 
 function gpio_init(){
-if [ ! -f /sys/class/gpio/gpio109/direction ] || [ ! -f /sys/class/gpio/gpio96/direction ]; then
+if 	[ ! -f /sys/class/gpio/gpio109/direction ] || 
+	[ ! -f /sys/class/gpio/gpio96/direction ] 
+then
 	log "export Recognition GPIOs..."
 	echo 109 > /sys/class/gpio/export # R184
 	echo 96 > /sys/class/gpio/export  # R185
@@ -139,7 +138,10 @@ else
 	log "Recognition GPIOs already exported"
 fi
 
-if [ ! -f /sys/class/gpio/gpio170/direction ] || [ ! -f /sys/class/gpio/gpio179/direction ]; then
+if 	[ ! -f /sys/class/gpio/gpio178/direction ] || 
+	[ ! -f /sys/class/gpio/gpio179/direction ] || 
+	[ ! -f /sys/class/gpio/gpio180/direction ]
+then
 	log "export Pinheader GPIOs..."
 	for i in ${!VALUEADDR[*]}; do
 		echo ${VALUEADDR[$i]} > /sys/class/gpio/export
@@ -188,9 +190,9 @@ function test_wifi()
   log "TEST Wireless"
   
   ifconfig $DEV_WIFI up || log "Wifi not showing up, error $?" $?
-  iw $DEV_WIFI scan     || log "Wifi not found anything, error $?" $?
-  iw $DEV_WIFI connect  || log "Wifi not connecting, error $?" $?
-  dhclient $DEV_WIFI    || log "Wifi not giving ip address, dhcp fail, error $?" $? 
+  iw $DEV_WIFI scan > /dev/null    || log "Wifi not found anything, error $?" $?
+  #iw $DEV_WIFI connect  || log "Wifi not connecting, error $?" $?
+  #dhclient $DEV_WIFI    || log "Wifi not giving ip address, dhcp fail, error $?" $? 
   
   log "WIFI ok"
 }
@@ -206,44 +208,83 @@ function test_usb()
 
 function test_gpio()
 {
-for((i=0; i<54; i+=2))
-{
-	echo in > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/direction
-	echo 1 > /sys/class/gpio/gpio${VALUEADDR[$i]}/value
-	sleep 0.1
-	VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value)
-	if [ $VALUE  -eq  1 ]; then
-		HIGH=0
-	else
-		HIGH=-1
-	fi
-	sleep 0.1
-	echo 0 > /sys/class/gpio/gpio${VALUEADDR[$i]}/value
-	sleep 0.1
-	VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value)
-	if [ $VALUE  -eq  0 ]; then
-		LOW=0
-	else
-		LOW=-1
-	fi
+	for((i=0; i<50; i+=2))
+	{
+		echo in > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
+		echo 1 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
+		sleep 0.1
+		VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$i]}/value)
+		echo $VALUE
+		if [ $VALUE  -eq  1 ]; then
+			HIGH=0
+		else
+			HIGH=-1
+		fi
+		sleep 0.1
+		echo 0 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
+		sleep 0.1
+		VALUE=$(cat /sys/class/gpio/gpio${VALUEADDR[$i]}/value)
+		echo $VALUE
+		if [ $VALUE  -eq  0 ]; then
+			LOW=0
+		else
+			LOW=-1
+		fi
 
-	if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
-		log "pin $i $(($i+1)) OK"
-	else
-		log "pin $i $(($i+1)) ERROR"
-	fi
+		if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
+			log "pin $i $(($i+1)) OK"
+		else
+			log "pin $i $(($i+1)) ERROR" #1
+		fi
+	}
 }
+
+function test_motion_sensor()
+{
+	# FXOS8700CQ
+	i2cset -f -y 3 0x1e 0x2a 1 || log "FXOS8700CQ Acc/Mag, error $?" $?
+	# FXAS21002CQR1
+	i2cset -f -y 3 0x20 0x13 0x16 || log "FXAS21002CQR1 Gyro, error $?" $?
+	
+	log "FXOS8700CQ/FXAS21002CQR1 (Acc/Mag - Gyro) OK"
+}
+
+function test_audiohdmi()
+{
+	speaker-test -c2 -twav -l1 || log "Audio HDMI error $?" $?
 }
 
 gpio_init
 board_version_recognition
-test_gpio
 
 #tests
+TEST_ETH=0
+TEST_WIFI=0
+TEST_MOT_SENSOR=0
+if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $BASIC ]]
+then 
+	(test_ethernet) ; TEST_ETH=$?
+fi
 
-(test_ethernet) ; TEST_ETH=$?
+if [[ $BOARD_MODEL != $BASIC ]] 
+then 
+	(test_wifi) ; TEST_WIFI=$?
+fi
 
-(test_wifi) ; TEST_WIFI=$?
+if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $EXTENDED ]]
+then
+	(test_motion_sensor); TEST_MOT_SENSOR=$?
+fi
 
 (test_usb); TEST_USB=$?
 
+(test_gpio); TEST_GPIO=$?
+
+(test_audiohdmi); TEST_AUDIOHDMI=$?
+
+if (( $TEST_ETH + $TEST_WIFI + $TEST_MOT_SENSOR + $TEST_USB + $TEST_AUDIOHDMI ))
+then 
+	log "UDOO NEO TEST FAILED" 1
+else 
+	log "UDOO NEO TEST OK" 0
+fi
