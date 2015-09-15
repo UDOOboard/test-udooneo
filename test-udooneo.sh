@@ -157,24 +157,30 @@ function board_version_recognition()
 
   gpio_init_recognition
 
-	R184=`cat /sys/class/gpio/gpio109/value` # R184
-	R185=`cat /sys/class/gpio/gpio96/value`  # R185
+  log "- Board recognition"
+  
+  R184=$(get_gpio_value 109) # R184
+  R185=$(get_gpio_value 96)  # R185
 	
-	echo $R184
-	echo $R185
-	
+  [[ ! -n $R184 ]] && [[ ! -n $R185 ]] && log "- RECOGNITION ERROR" 1
+
+	log "R184: $R184"
+	log "R185: $R185"
+
+  log "- BOARD:"
+
 	if [ $R184 -eq $NOTMOUNTED ] && [ $R185 -eq $MOUNTED ]; then
 		BOARD_MODEL=$FULL
-		echo 'UDOO NEO FULL'
+		log '- UDOO NEO FULL'
 	elif [ $R184 -eq $NOTMOUNTED ] && [ $R185 -eq $NOTMOUNTED ]; then
 		BOARD_MODEL=$EXTENDED
-		echo 'UDOO NEO EXTENDED'
+		log '- UDOO NEO EXTENDED'
 	elif [ $R184 -eq $MOUNTED ] && [ $R185 -eq $MOUNTED ]; then
 		BOARD_MODEL=$BASIC
-		echo 'UDOO BASIC'
+		log '- UDOO BASIC'
 	elif [ $R184 -eq $MOUNTED ] && [ $R185 -eq $NOTMOUNTED ]; then
 		BOARD_MODEL=$BASICKS
-		echo 'UDOO BASIC KICKSTARTER'
+		log '- UDOO BASIC KICKSTARTER'
 	fi
 }
 
