@@ -214,7 +214,7 @@ function test_ethernet()
   log "- TEST Ethernet"
  
   ifconfig $DEV_ETH up || log "Ethernet not showing up, error $?" $?
-#  dhclient $DEV_ETH || log "Ethernet not functioning error $?" $? 
+  dhclient $DEV_ETH || log "Ethernet not functioning error $?" $? 
   
   log "- TEST Ethernet OK"
 }
@@ -224,7 +224,16 @@ function test_wifi()
   log "- TEST Wireless"
   
   ifconfig $DEV_WIFI up || log "Wifi not showing up, error $?" $?
-  iw $DEV_WIFI scan > /dev/null    || log "Wifi not found anything, error $?" $?
+    
+  if [ -n $TEST_FULL ] 
+  then
+       iw $DEV_WIFI scan | grep -i -e ssid -e signal || 
+               log "Wifi not found anything, error $?" $?
+  else
+       iw $DEV_WIFI scan > /dev/null ||
+                log "Wifi not found anything, error $?" $?
+  fi
+
   #iw $DEV_WIFI connect  || log "Wifi not connecting, error $?" $?
   #dhclient $DEV_WIFI    || log "Wifi not giving ip address, dhcp fail, error $?" $? 
   
@@ -266,7 +275,7 @@ function test_audiohdmi()
 
   log "- TEST AUDIO HDMI"
 
-	speaker-test -c2 -twav -l1 || log "Audio HDMI error $?" $?
+	speaker-test -c2 -twav -l3 >/dev/null || log "Audio HDMI error $?" $?
  
   log "- Audio HDMI OK"
 }
@@ -416,14 +425,15 @@ then
 fi
 
 TESTS+=(test_u_usb)
-TESTS+=(test_audiohdmi)
+TESTS+=(test_usb_a)
 
 if (( TEST_FULL ))
 then
- TESTS+=(test_usb_a)
 # TESTS+=(test_gpio)
  TESTS+=(test_i2c2)
 fi
+
+TESTS+=(test_audiohdmi)
 
 log "------------------------------ TESTS ------------------------------"
 log "- "
