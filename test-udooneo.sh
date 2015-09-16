@@ -34,15 +34,15 @@ VALUEADDR[11]='173'
 VALUEADDR[12]='140'
 VALUEADDR[13]='182'
 VALUEADDR[14]='149'
-VALUEADDR[15]='124'
+VALUEADDR[15]='24'
 
 VALUEADDR[16]='105'  # j6
 VALUEADDR[17]='25'
 VALUEADDR[18]='148'
-VALUEADDR[19]='23'
-VALUEADDR[20]='146'
+VALUEADDR[19]='22'
+VALUEADDR[20]='103'
 VALUEADDR[21]='14'
-VALUEADDR[22]='147'
+VALUEADDR[22]='101'
 VALUEADDR[23]='15'
 VALUEADDR[24]='100'
 VALUEADDR[25]='16'
@@ -65,8 +65,6 @@ VALUEADDR[40]='175'
 VALUEADDR[41]='121'
 VALUEADDR[42]='174'
 VALUEADDR[43]='120'
-#VALUEADDR[44]='202'
-#VALUEADDR[45]='203'
 
 VALUEADDR[44]='119'  # j7
 VALUEADDR[45]='124'
@@ -74,35 +72,36 @@ VALUEADDR[46]='127'
 VALUEADDR[47]='116'
 VALUEADDR[48]='7'
 VALUEADDR[49]='6'
-#VALUEADDR[50]='5'  # uart
-#VALUEADDR[51]='4'
 
 # check the if root?
 userid=`id -u`
 if [ $userid -ne "0" ]; then
-	echo "You're not root? Bravoh!"
-	exit
+  echo "You're not root? Bravoh!"
+  exit
 fi
 
-usage() {
- cat << EOF 
+usage() 
+{
+  cat << EOF 
 UDOO NEO Test Program
 Usage: $0 [ --full ]
 EOF
 }
-  
-error() {
+
+error() 
+{
   #error($E_TEXT,$E_CODE)
 
   local E_TEXT=$1
   local E_CODE=$2
-  
+
   [[ -z $E_CODE ]] && E_CODE=1
   [[ -z $E_TEXT ]] || echo $E_TEXT >&2
   exit $E_CODE
 }
 
-ok() {
+ok() 
+{
   #ok($OK_TEXT)
   local OK_TEXT=$1
   [[ -z $OK_TEXT ]] && OK_TEXT="Success!!"
@@ -110,20 +109,28 @@ ok() {
   exit 0
 }
 
-usagee(){
+usagee()
+{
   usage
   error "$1" "$2"
 }
 
-log(){
- echo "$1" 
- 
- (( $2 )) || return 0
- 
- exit $2
+log()
+{
+  echo "$1" 
+  (( $2 )) || return 0
+  exit $2
 }
 
-function gpio_init_recognition(){
+logn()
+{
+  echo -n "$1" 
+  (( $2 )) || return 0
+  exit $2
+}
+
+function gpio_init_recognition()
+{
   if 	[ ! -f /sys/class/gpio/gpio109/direction ] || 
       [ ! -f /sys/class/gpio/gpio96/direction ] 
   then
@@ -136,39 +143,30 @@ function gpio_init_recognition(){
     log "- Recognition GPIOs already exported"
   fi
 }
-function gpio_init_pinheader(){
 
-	echo 118 > /sys/class/gpio/export
-	echo 114 > /sys/class/gpio/export
-	echo 115 > /sys/class/gpio/export
-	echo 151 > /sys/class/gpio/export
-	echo 144 > /sys/class/gpio/export
-	echo 117 > /sys/class/gpio/export
+function gpio_init_pinheader()
+{
 
+  echo 146 > /sys/class/gpio/export
+  echo 147 > /sys/class/gpio/export
+  echo in > /sys/class/gpio/gpio146/direction
+  echo in > /sys/class/gpio/gpio147/direction
 
-	echo out > /sys/class/gpio/gpio118/direction
-	echo out > /sys/class/gpio/gpio114/direction
-	echo out > /sys/class/gpio/gpio115/direction
-	echo out > /sys/class/gpio/gpio151/direction
-	echo out > /sys/class/gpio/gpio144/direction
-	echo out > /sys/class/gpio/gpio117/direction
+  #internal muxing 
+  for i in 118 114 115 151 144 117
+  do 
+    echo $i  > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio${i}/direction
+    echo 1 > /sys/class/gpio/gpio${i}/value
+  done
 
-
-	    echo 1 > /sys/class/gpio/gpio118/value
-	    echo 1 > /sys/class/gpio/gpio114/value
-	    echo 1 > /sys/class/gpio/gpio115/value
-	    echo 1 > /sys/class/gpio/gpio151/value
-	    echo 1 > /sys/class/gpio/gpio144/value
-	    echo 1 > /sys/class/gpio/gpio117/value
-
-
-if 	[ ! -f /sys/class/gpio/gpio178/direction ] || 
-    [ ! -f /sys/class/gpio/gpio179/direction ] || 
-    [ ! -f /sys/class/gpio/gpio180/direction ]
+  if 	[ ! -f /sys/class/gpio/gpio178/direction ] || 
+      [ ! -f /sys/class/gpio/gpio179/direction ] || 
+      [ ! -f /sys/class/gpio/gpio180/direction ]
   then
     log "- export Pinheader GPIOs..."
     for i in ${!VALUEADDR[*]}; do
-      echo "exporting pin ${VALUEADDR[$i]}..."
+      # echo "exporting pin ${VALUEADDR[$i]}..."
       echo ${VALUEADDR[$i]} > /sys/class/gpio/export
       echo out > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
     done
@@ -183,91 +181,91 @@ function board_version_recognition()
   gpio_init_recognition
 
   log "- Board recognition"
-  
+
   R184=$(get_gpio_value 109) # R184
   R185=$(get_gpio_value 96)  # R185
-	
+
   [[ ! -n $R184 ]] && [[ ! -n $R185 ]] && log "- RECOGNITION ERROR" 1
 
-	log "R184: $R184"
-	log "R185: $R185"
+  log "R184: $R184"
+  log "R185: $R185"
 
   log "- BOARD:"
 
-	if [ $R184 -eq $NOTMOUNTED ] && [ $R185 -eq $MOUNTED ]; then
-		BOARD_MODEL=$FULL
-		log '- UDOO NEO FULL'
-	elif [ $R184 -eq $NOTMOUNTED ] && [ $R185 -eq $NOTMOUNTED ]; then
-		BOARD_MODEL=$EXTENDED
-		log '- UDOO NEO EXTENDED'
-	elif [ $R184 -eq $MOUNTED ] && [ $R185 -eq $MOUNTED ]; then
-		BOARD_MODEL=$BASIC
-		log '- UDOO BASIC'
-	elif [ $R184 -eq $MOUNTED ] && [ $R185 -eq $NOTMOUNTED ]; then
-		BOARD_MODEL=$BASICKS
-		log '- UDOO BASIC KICKSTARTER'
-	fi
+  if [ $R184 -eq $NOTMOUNTED ] && [ $R185 -eq $MOUNTED ]; then
+    BOARD_MODEL=$FULL
+    log '- UDOO NEO FULL'
+  elif [ $R184 -eq $NOTMOUNTED ] && [ $R185 -eq $NOTMOUNTED ]; then
+    BOARD_MODEL=$EXTENDED
+    log '- UDOO NEO EXTENDED'
+  elif [ $R184 -eq $MOUNTED ] && [ $R185 -eq $MOUNTED ]; then
+    BOARD_MODEL=$BASIC
+    log '- UDOO BASIC'
+  elif [ $R184 -eq $MOUNTED ] && [ $R185 -eq $NOTMOUNTED ]; then
+    BOARD_MODEL=$BASICKS
+    log '- UDOO BASIC KICKSTARTER'
+  fi
 }
 
 function test_ethernet()
 {
   log "- TEST Ethernet"
- 
+
   ifconfig $DEV_ETH up || log "Ethernet not showing up, error $?" $?
   dhclient $DEV_ETH || log "Ethernet not functioning error $?" $? 
-  
+
   log "- TEST Ethernet OK"
 }
 
 function test_wifi()
 {
   log "- TEST Wireless"
-  
+
   ifconfig $DEV_WIFI up || log "Wifi not showing up, error $?" $?
-    
+
   if [ -n $TEST_FULL ] 
   then
-       iw $DEV_WIFI scan | grep -i -e ssid -e signal || 
-               log "Wifi not found anything, error $?" $?
+    iw $DEV_WIFI scan | grep -i -e ssid -e signal || 
+    log "Wifi not found anything, error $?" $?
   else
-       iw $DEV_WIFI scan > /dev/null ||
-                log "Wifi not found anything, error $?" $?
+    iw $DEV_WIFI scan > /dev/null ||
+      log "Wifi not found anything, error $?" $?
   fi
 
   #iw $DEV_WIFI connect  || log "Wifi not connecting, error $?" $?
   #dhclient $DEV_WIFI    || log "Wifi not giving ip address, dhcp fail, error $?" $? 
-  
+
   log "- TEST WIFI OK"
 }
 
 function test_u_usb()
 {
   log "- TEST uUsb.."
-  
+
   lsusb -D /dev/bus/usb/002/001 >/dev/null || log "uUsb: Hub not found" $? 
   lsusb -D /dev/bus/usb/002/002 >/dev/null || log "uUsb: Device not found" $?
-  
+
   log "- TEST uUSB OK"
 }
 
 function test_usb_a()
 {
   log "- TEST Usb A.."
-  
+
   lsusb -D /dev/bus/usb/001/001 >/dev/null || log "Usb_A: Hub not found" $? 
   lsusb -D /dev/bus/usb/001/002 >/dev/null || log "Usb_A: Device not found" $?
-  
+
   log "- TEST Usb A OK"
 }
 
 function test_motion_sensor()
 {
-	# FXOS8700CQ
-	i2cset -f -y 3 0x1e 0x2a 1 || log "FXOS8700CQ Acc/Mag, error $?" $?
-	# FXAS21002CQR1
-	i2cset -f -y 3 0x20 0x13 0x16 || log "FXAS21002CQR1 Gyro, error $?" $?
-	
-	log "- FXOS8700CQ/FXAS21002CQR1 (Acc/Mag - Gyro) OK"
+  # FXOS8700CQ
+  i2cset -f -y 3 0x1e 0x2a 1 || log "FXOS8700CQ Acc/Mag, error $?" $?
+  # FXAS21002CQR1
+  i2cset -f -y 3 0x20 0x13 0x16 || log "FXAS21002CQR1 Gyro, error $?" $?
+
+  log "- FXOS8700CQ/FXAS21002CQR1 (Acc/Mag - Gyro) OK"
 }
 
 function test_audiohdmi()
@@ -275,95 +273,90 @@ function test_audiohdmi()
 
   log "- TEST AUDIO HDMI"
 
-	speaker-test -c2 -twav -l3 >/dev/null || log "Audio HDMI error $?" $?
- 
+  speaker-test -c2 -twav -l3 >/dev/null || log "Audio HDMI error $?" $?
+
   log "- Audio HDMI OK"
 }
 
-function get_gpio_value(){
-  
+function get_gpio_value()
+{
+
   local GPIO_NR
-  local BANK_NR
-  local GPIO
   local VALUE
 
   (( $1 > 0 )) && (( $1 < 192 )) && GPIO_NR=$1
 
   [ -v GPIO_NR ] || log "- get_gpio_value: gpio number not valid" 1
 
-  GPIO_BANK=$(( $GPIO_NR / 32 ))
-  SHIFT=$(( $GPIO_NR % 32 ))
-
-  #imx6sx gpio regs
-  declare -a GPIO_ADDRESS
-
-  GPIO_ADDRESS[1]=0x0209C008
-  GPIO_ADDRESS[2]=0x020A0008
-  GPIO_ADDRESS[3]=0x020A4008
-  GPIO_ADDRESS[4]=0x020A8008
-  GPIO_ADDRESS[5]=0x020AC008
-  GPIO_ADDRESS[6]=0x020B0008
-  GPIO_ADDRESS[7]=0x020B4008
-
-  #reading registers
-  GPIO=$(devmem2 $GPIO_ADDRESS[$(($GPIO_BANK+1))] | tail -n1 | sed -e 's/.*\(0x.*$\)/\1/') 
-echo $GPIO >&2
-echo $SHIFT >&2
-  VALUE=$(( ( $GPIO >> $SHIFT ) & 0x00000001 ))
-  
-  
+  #reading register
+  VALUE=$(cat /sys/class/gpio/gpio${GPIO_NR}/value)
 
   echo $VALUE 
 }
 
 function test_gpio()
 {
+  declare -a ERROR
+  
   gpio_init_pinheader
-
-	for((i=0; i<50; i+=2))
-	{
-    log "- Testing pin ${VALUEADDR[$i]} and ${VALUEADDR[$(($i+1))]}.."
-		echo in > /sys/class/gpio/gpio${VALUEADDR[$i]}/direction
-    log "high.." 
-    echo 1 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
-		sleep 0.1
+  
+  for ((i=0; i<50; i+=2))
+  do
     
+    GPIO_IN=${VALUEADDR[$i]}
+    GPIO_OUT=${VALUEADDR[$(($i+1))]}
+
+    logn "- Testing pin $GPIO_IN,($i) and $GPIO_OUT,($(($i+1))).."
+    echo in > /sys/class/gpio/gpio$GPIO_IN/direction
+    logn "high.." 
+    echo 1 > /sys/class/gpio/gpio$GPIO_OUT/value
+    sleep 0.1
+
     #reading input register
 
-	  VALUE=$( get_gpio_value ${VALUEADDR[$i]} )
-		echo $VALUE
-		
-    [[ -n $VALUE ]] || log "- GPIO ERROR: devmem failed.. " 1 
+    VALUE=$( get_gpio_value $GPIO_IN )
+
+    [[ -n $VALUE ]] || log "- GPIO ERROR: read failed.. " 1 
 
     if [ $VALUE  -eq  1 ]; then
-			HIGH=0
-		else
-			HIGH=-1
-		fi
-		
+      HIGH=0
+    else
+      HIGH=-1
+    fi
+
     sleep 0.1
-    
+
     log "..and low" 
-    echo 0 > /sys/class/gpio/gpio${VALUEADDR[$(($i+1))]}/value
-		sleep 0.1
+    echo 0 > /sys/class/gpio/gpio$GPIO_OUT/value
+    sleep 0.1
 
     #reading again..
 
-	  VALUE=$( get_gpio_value ${VALUEADDR[$i]} )
-		echo $VALUE
+    VALUE=$( get_gpio_value $GPIO_IN )
 
-		if [ $VALUE  -eq  0 ]; then
-			LOW=0
-		else
-			LOW=-1
-		fi
+    [[ -n $VALUE ]] || log "- GPIO ERROR: read failed.. " 1 
 
-		if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
-			log "- pin $i $(($i+1)) OK"
-		else
-			log "- pin $i $(($i+1)) ERROR" 
-		fi
-	}
+    if [ $VALUE  -eq  0 ]; then
+      LOW=0
+    else
+      LOW=-1
+    fi
+
+    if [ $HIGH -eq 0 -a $LOW -eq 0 ]; then
+      log "- pin $i $(($i+1)) OK"
+    else
+      log "- pin $i $(($i+1)) ERROR"
+      ERROR+=( $GPIO_IN $GPIO_OUT )
+    fi
+  done
+  
+  if [[ -n $ERROR ]]
+  then
+    log "- GPIO TEST FAILED" 
+    log "- ON ${ERROR[*]} and " 
+  else
+    log "- GPIO TEST OK"
+  fi
 }
 
 test_i2c2() {
@@ -379,7 +372,7 @@ test_i2c2() {
   RESP_ERR=$?
 
   (( $RESP_ERR ))  && 
-    log "- i2c2 ERROR: $RESP_ERR" $RESP_ERR
+  log "- i2c2 ERROR: $RESP_ERR" $RESP_ERR
 
   log "- TEST i2c2 OK"
 }
@@ -390,8 +383,16 @@ test_i2c2() {
 for i in $@
 do 
   case "$i" in
-    --full)  TEST_FULL=1 ;;
-    *)       usagee ;; 
+    --full)        TEST_FULL=1 ;;
+    audiohdmi)     TESTS+=(test_audiohdmi)     ;;
+    ethernet)      TESTS+=(test_ethernet)      ;;
+    gpio)          TESTS+=(test_gpio)      ;;
+    i2c2)          TESTS+=(test_i2c2)      ;;
+    motion_sensor) TESTS+=(test_motion_sensor) ;;
+    u_usb)         TESTS+=(test_u_usb)     ;;
+    usb_a)         TESTS+=(test_usb_a)     ;;
+    wifi)          TESTS+=(test_wifi)     ;;
+    *)             usagee ;; 
   esac 
   shift
 done
@@ -407,33 +408,36 @@ log " "
 
 #tests
 
-declare -a TESTS
-
-if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $BASIC ]]
-then 
-	TESTS+=(test_ethernet)
-fi
-
-if [[ $BOARD_MODEL != $BASIC ]] 
-then 
-	TESTS+=(test_wifi)
-fi
-
-if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $EXTENDED ]]
+if [ ! -v TESTS ] 
 then
-	TESTS+=(test_motion_sensor)
+  declare -a TESTS
+
+  if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $BASIC ]]
+  then 
+    TESTS+=(test_ethernet)
+  fi
+
+  if [[ $BOARD_MODEL != $BASIC ]] 
+  then 
+    TESTS+=(test_wifi)
+  fi
+
+  if [[ $BOARD_MODEL = $FULL ]] || [[ $BOARD_MODEL = $EXTENDED ]]
+  then
+    TESTS+=(test_motion_sensor)
+  fi
+
+  TESTS+=(test_u_usb)
+  TESTS+=(test_usb_a)
+
+  if (( TEST_FULL ))
+  then
+    TESTS+=(test_gpio)
+    TESTS+=(test_i2c2)
+  fi
+
+  TESTS+=(test_audiohdmi)
 fi
-
-TESTS+=(test_u_usb)
-TESTS+=(test_usb_a)
-
-if (( TEST_FULL ))
-then
-# TESTS+=(test_gpio)
- TESTS+=(test_i2c2)
-fi
-
-TESTS+=(test_audiohdmi)
 
 log "------------------------------ TESTS ------------------------------"
 log "- "
@@ -448,6 +452,7 @@ log "-------------------------------------------------------------------"
 
 log " "
 
+#start tests
 for test in ${TESTS[*]}
 do
   ($test)
@@ -458,12 +463,12 @@ log " "
 
 if (( $TEST_RES ))
 then 
-	log "- UDOO NEO TEST FAILED: ERRCODE $TEST_RES" 1
+  log "- UDOO NEO TEST FAILED: ERRCODE $TEST_RES" 1
 else 
-	log "- UDOO NEO TEST OK" 0
+  log "- UDOO NEO TEST OK" 0
 fi
 
 log " "
 
-sleep 10
+sleep 20
 
